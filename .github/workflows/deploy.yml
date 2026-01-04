@@ -22,7 +22,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.witcherua }}
-          password: ${{ secrets.Admin@7455 }}
+          password: ${{ secrets.u1h9k8o9O }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
