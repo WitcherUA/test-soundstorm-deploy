@@ -42,6 +42,8 @@ jobs:
             docker pull witcherua/test-soundstorm:latest
             docker run -d \
               --name test-soundstorm \
+              --restart always \
               -p 80:80 -p 443:443 \
               -v /etc/letsencrypt:/etc/letsencrypt:ro \
               witcherua/test-soundstorm:latest
+
