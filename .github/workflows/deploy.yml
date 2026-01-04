@@ -32,5 +32,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/soundstorm:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/soundstorm:${{ github.ref_name }}
+            kovalev.o@ukr.net/test2-soundstorm:latest
+            kovalev.o@ukr.net/test2-soundstorm:${{ github.ref_name }}
