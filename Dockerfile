@@ -1,10 +1,20 @@
-FROM nginx:1.25-alpine
+FROM nginx:1.25
+
+# Створюємо папку для сертифікатів
+RUN mkdir -p /etc/nginx/ssl/
 
 # Копіюємо сайт
-COPY app /usr/share/nginx/html
+COPY site/ /usr/share/nginx/html/
 
-# Кастомний конфіг (опційно)
-COPY app/nginx.conf /etc/nginx/conf.d/default.conf
+# Копіюємо конфіг
+COPY docker/default.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+# Копіюємо сертифікати
+COPY certs/ /etc/nginx/ssl/
+
+# Даємо доступ до сертифікатів
+RUN chmod 644 /etc/nginx/ssl/*.pem
+
+EXPOSE 80 443
+
 CMD ["nginx", "-g", "daemon off;"]
