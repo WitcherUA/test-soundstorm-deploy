@@ -3,34 +3,65 @@
 <head>
   <meta charset="utf-8">
   <title>test.soundstorm.pp.ua</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
+      font-family: 'Segoe UI', sans-serif;
     }
+
     body {
       background-image: url('test.soundstorm.pp.ua.png'); /* твоя картинка */
-      background-size: cover;       /* розтягує на всю сторінку */
-      background-position: center;  /* центрує */
-      background-repeat: no-repeat; /* не повторює */
+      background-size: contain;       /* масштабування без обрізання */
+      background-position: center;
+      background-repeat: no-repeat;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      color: white; /* або чорний, залежно від картинки */
-      text-shadow: 1px 1px 3px black; /* для контрасту */
-      font-family: sans-serif;
+      text-align: center;
+      color: white;
     }
+
+    .overlay {
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 20px 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      max-width: 90%;
+    }
+
     h1 {
       font-size: 2em;
-      background-color: rgba(0,0,0,0.5); /* прозорий фон для читабельності */
-      padding: 10px 20px;
-      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .logo {
+      max-width: 300px;   /* обмеження ширини */
+      width: 80%;         /* адаптивне масштабування */
+      height: auto;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.5em;
+      }
+      .overlay {
+        padding: 15px 20px;
+      }
+      .logo {
+        max-width: 200px; /* ще менше на мобільних */
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Сайт працює через GitHub Actions</h1>
+  <div class="overlay">
+    <h1>Сайт працює через GitHub Actions</h1>
+    <img src="test.soundstorm.pp.ua.png" alt="Logo SoundStorm" class="logo">
+  </div>
 </body>
 </html>
