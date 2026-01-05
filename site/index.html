@@ -1,11 +1,36 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="utf-8">
-    <title>test.soundstorm.pp.ua</title>
+  <meta charset="utf-8">
+  <title>test.soundstorm.pp.ua</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    body {
+      background-image: url('test.soundstorm.pp.ua.png'); /* твоя картинка */
+      background-size: cover;       /* розтягує на всю сторінку */
+      background-position: center;  /* центрує */
+      background-repeat: no-repeat; /* не повторює */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white; /* або чорний, залежно від картинки */
+      text-shadow: 1px 1px 3px black; /* для контрасту */
+      font-family: sans-serif;
+    }
+    h1 {
+      font-size: 2em;
+      background-color: rgba(0,0,0,0.5); /* прозорий фон для читабельності */
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Сайт працює через GitHub Actions</h1>
-    <img src="test.soundstorm.pp.ua.png" alt="Logo SoundStorm" width="400">
+  <h1>Сайт працює через GitHub Actions</h1>
 </body>
 </html>
