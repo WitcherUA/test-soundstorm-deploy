@@ -13,55 +13,39 @@
     }
 
     body {
-      background-image: url('test.soundstorm.pp.ua.png'); /* твоя картинка */
+      background-image: url('test.soundstorm.pp.ua.png');
       background-size: contain;       /* масштабування без обрізання */
-      background-position: center;
+      background-position: center top; /* картинка вирівняна по верху */
       background-repeat: no-repeat;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: center;
       text-align: center;
       color: white;
     }
 
-    .overlay {
-      background-color: rgba(0, 0, 0, 0.6);
-      padding: 20px 40px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-      max-width: 90%;
-    }
-
-    h1 {
-      font-size: 2em;
-      margin-bottom: 10px;
-    }
-
-    .logo {
-      max-width: 300px;   /* обмеження ширини */
-      width: 80%;         /* адаптивне масштабування */
-      height: auto;
-      margin-top: 10px;
+    .header-text {
+      position: absolute;
+      top: 10px;              /* відступ від самого верху */
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.6em;
+      font-weight: bold;
+      background-color: rgba(0,0,0,0.5);
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-shadow: 1px 1px 4px black;
     }
 
     @media (max-width: 600px) {
-      h1 {
-        font-size: 1.5em;
-      }
-      .overlay {
-        padding: 15px 20px;
-      }
-      .logo {
-        max-width: 200px; /* ще менше на мобільних */
+      .header-text {
+        font-size: 1.2em;
+        padding: 6px 12px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="overlay">
-    <h1>Сайт працює через GitHub Actions</h1>
-    <img src="test.soundstorm.pp.ua.png" alt="Logo SoundStorm" class="logo">
-  </div>
+  <div class="header-text">Сайт працює через GitHub Actions</div>
 </body>
 </html>
