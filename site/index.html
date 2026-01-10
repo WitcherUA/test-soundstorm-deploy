@@ -13,16 +13,18 @@
     }
 
     body {
-      background-image: url('test2.png');
-      background-size: contain;       /* масштабування без обрізання */
-      background-position: center top; /* картинка вирівняна по верху */
-      background-repeat: no-repeat;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      color: white;
-    }
+  background-image: url('test2.png');
+  background-size: cover;                /* розтягує на весь екран */
+  background-position: center center;    /* центрує */
+  background-repeat: no-repeat;
+  background-attachment: fixed;          /* фон не рухається при скролі */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: white;
+}
+
 
     .header-text {
       position: absolute;
