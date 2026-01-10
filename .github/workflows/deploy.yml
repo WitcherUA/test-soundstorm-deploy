@@ -4,6 +4,10 @@ on:
   push:
     branches: [ "main" ]
 
+env:
+  IMAGE_NAME: witcherua/test-soundstorm
+  IMAGE_TAG: 0.1   # ← тут змінюєш версію
+
 jobs:
   # --- CI: Build and Push to DockerHub ---
   build-and-push:
@@ -26,7 +30,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: witcherua/test-soundstorm:0.1
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
   # --- CD: Deploy on VM via self-hosted runner ---
   deploy:
@@ -39,7 +45,7 @@ jobs:
           docker rm test-soundstorm || true
 
       - name: Pull new image
-        run: docker pull witcherua/test-soundstorm:0.1
+        run: docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
       - name: Run new container
         run: docker run -d \
@@ -47,7 +53,7 @@ jobs:
           --restart always \
           -p 80:80 -p 443:443 \
           -v /etc/letsencrypt:/etc/letsencrypt:ro \
-          witcherua/test-soundstorm:0.1
+          ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
       - name: Health check
         run: |
