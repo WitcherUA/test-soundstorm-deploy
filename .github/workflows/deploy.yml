@@ -1,23 +1,45 @@
-name: Build and Deploy
+name: Build and Deploy Pipeline
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
-  build-and-deploy:
-    runs-on: self-hosted   # ключове — твій VM раннер
+  # --- CI: Build and Push to DockerHub ---
+  build-and-push:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t test-soundstorm .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Stop old container (if exists)
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: witcherua/test-soundstorm:latest
+
+  # --- CD: Deploy on VM via self-hosted runner ---
+  deploy:
+    runs-on: self-hosted
+    needs: build-and-push
+    steps:
+      - name: Stop old container
         run: |
           docker stop test-soundstorm || true
           docker rm test-soundstorm || true
+
+      - name: Pull new image
+        run: docker pull witcherua/test-soundstorm:latest
 
       - name: Run new container
         run: docker run -d \
@@ -25,4 +47,9 @@ jobs:
           --restart always \
           -p 80:80 -p 443:443 \
           -v /etc/letsencrypt:/etc/letsencrypt:ro \
-          test-soundstorm
+          witcherua/test-soundstorm:latest
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -f http://localhost:80 || exit 1
