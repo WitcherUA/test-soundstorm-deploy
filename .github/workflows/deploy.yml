@@ -48,12 +48,7 @@ jobs:
         run: docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
       - name: Run new container
-        run: docker run -d \
-          --name test-soundstorm \
-          --restart always \
-          -p 80:80 -p 443:443 \
-          -v /etc/letsencrypt:/etc/letsencrypt:ro \
-          ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        run: docker run -d --name test-soundstorm --restart always -p 80:80 -p 443:443 -v /etc/letsencrypt:/etc/letsencrypt:ro ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
       - name: Health check
         run: |
