@@ -43,11 +43,11 @@ jobs:
 
       - name: Run new container
         run: docker run -d \
-          --name test-soundstorm:0.1 \
+          --name test-soundstorm \
           --restart always \
           -p 80:80 -p 443:443 \
           -v /etc/letsencrypt:/etc/letsencrypt:ro \
-          witcherua/test-soundstorm:latest
+          witcherua/test-soundstorm:0.1
 
       - name: Health check
         run: |
