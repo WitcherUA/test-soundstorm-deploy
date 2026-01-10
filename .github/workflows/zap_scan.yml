@@ -1,0 +1,31 @@
+name: OWASP ZAP Security Scan
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  zap_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Run ZAP Full Scan
+        uses: zaproxy/action-full-scan@v0.7.0
+        with:
+          target: "https://test.soundstorm.pp.ua"
+          rules: "ignore-alerts.conf"
+          cmd_options: "-a"
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: zap-report
+          path: owasp-zap-report.html
+
+      - name: Create GitHub Issues from ZAP Alerts
+        uses: zaproxy/action-common@v0.7.0
+        with:
+          createissue: true
