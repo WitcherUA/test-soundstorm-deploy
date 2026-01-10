@@ -26,7 +26,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: witcherua/test-soundstorm:latest
+          tags: witcherua/test-soundstorm:0.1
 
   # --- CD: Deploy on VM via self-hosted runner ---
   deploy:
@@ -39,7 +39,7 @@ jobs:
           docker rm test-soundstorm || true
 
       - name: Pull new image
-        run: docker pull witcherua/test-soundstorm:latest
+        run: docker pull witcherua/test-soundstorm:0.1
 
       - name: Run new container
         run: docker run -d \
