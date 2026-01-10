@@ -43,7 +43,7 @@ jobs:
 
       - name: Run new container
         run: docker run -d \
-          --name test-soundstorm \
+          --name test-soundstorm:0.1 \
           --restart always \
           -p 80:80 -p 443:443 \
           -v /etc/letsencrypt:/etc/letsencrypt:ro \
