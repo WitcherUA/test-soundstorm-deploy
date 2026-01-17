@@ -6,7 +6,7 @@ on:
 
 env:
   IMAGE_NAME: witcherua/test-soundstorm
-  IMAGE_TAG: 0.2   # ← тут змінюєш версію
+  IMAGE_TAG: 0.3   # ← тут змінюєш версію
 
 jobs:
   # --- CI: Build and Push to DockerHub ---
