@@ -1,11 +1,14 @@
 #!/bin/bash
 set -e
 
-# Отримати останній git‑тег (якщо немає — v0)
-LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0")
+# Отримати останній тег з remote (якщо немає — v0)
+LAST_TAG=$(git ls-remote --tags origin | awk -F'/' '{print $3}' | sort -V | tail -n1)
+if [[ -z "$LAST_TAG" ]]; then
+  LAST_TAG="v0"
+fi
 
-# Витягнути тільки число після v
-LAST_NUM=$(echo "$LAST_TAG" | sed 's/^v//')
+# Витягнути число після v
+LAST_NUM=${LAST_TAG#v}
 
 # Якщо порожньо — починаємо з 0
 if [[ -z "$LAST_NUM" ]]; then
@@ -16,8 +19,8 @@ fi
 NEXT_NUM=$((LAST_NUM + 1))
 NEXT_TAG="v${NEXT_NUM}"
 
-echo "Last tag: $LAST_TAG"
-echo "Next tag: $NEXT_TAG"
+echo "Last remote tag: $LAST_TAG"
+echo "Next tag will be: $NEXT_TAG"
 
 # Побудувати Docker‑образ з двома тегами: latest і v0.x
 docker build -t witcherua/test-soundstorm:latest -t witcherua/test-soundstorm:$NEXT_TAG .
@@ -26,13 +29,9 @@ docker build -t witcherua/test-soundstorm:latest -t witcherua/test-soundstorm:$N
 docker push witcherua/test-soundstorm:latest
 docker push witcherua/test-soundstorm:$NEXT_TAG
 
-# Створити git‑тег, якщо його ще немає
-if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
-  echo "Git tag $NEXT_TAG вже існує, пропускаю..."
-else
-  git tag "$NEXT_TAG"
-  git push origin "$NEXT_TAG"
-fi
+# Створити git‑тег локально і запушити його
+git tag "$NEXT_TAG"
+git push origin "$NEXT_TAG"
 
-# Вивести тег як output для GitHub Actions
+# Записати output для GitHub Actions
 echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
