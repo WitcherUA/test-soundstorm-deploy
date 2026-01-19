@@ -19,8 +19,8 @@ fi
 NEXT_NUM=$((LAST_NUM + 1))
 NEXT_TAG="v${NEXT_NUM}"
 
-echo "Last remote tag: $LAST_TAG"
-echo "Next tag will be: $NEXT_TAG"
+echo "Last remote tag: $LAST_TAG" >&2
+echo "Next tag will be: $NEXT_TAG" >&2
 
 # Побудувати Docker‑образ з двома тегами: latest і v0.x
 docker build -t witcherua/test-soundstorm:latest -t witcherua/test-soundstorm:$NEXT_TAG .
