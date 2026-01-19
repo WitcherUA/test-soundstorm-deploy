@@ -22,19 +22,19 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Bump version
+        id: bump
         run: |
           chmod +x version.sh
           NEW_VERSION=$(./version.sh)
-          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "tag=${NEW_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Build and push image
         run: |
           docker buildx build \
             --platform linux/amd64 \
             -t witcherua/test-soundstorm:latest \
-            -t witcherua/test-soundstorm:v${{ steps.bump.outputs.tag }} \
+            -t witcherua/test-soundstorm:${{ steps.bump.outputs.tag }} \
             --push .
-
 
   deploy:
     runs-on: ubuntu-latest
@@ -54,5 +54,6 @@ jobs:
             docker run -d \
               --name test-soundstorm \
               -p 80:80 -p 443:443 \
+              -v /etc/letsencrypt:/etc/letsencrypt:ro \
               --restart unless-stopped \
               witcherua/test-soundstorm:latest

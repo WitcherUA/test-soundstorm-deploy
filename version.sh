@@ -1,48 +1,33 @@
 #!/bin/bash
-set -euo pipefail
+set -e
 
-# === Auto-bump version tag ===
+# Отримати останній тег (якщо немає — v0.0)
+LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0")
 
-# 🔄 Завантажити всі теги з origin 
-git fetch --tags
+# Витягнути номер (після v)
+LAST_NUM=${LAST_TAG#v}
 
-# Отримати останній тег (наприклад v0.2). Якщо тегів немає — fallback v0.0
-VERSION=$(git tag --sort=-v:refname | grep '^v[0-9]\+\.[0-9]\+$' | tail -n 1)
-if [[ -z "$VERSION" ]]; then VERSION="v0.0"; fi
+# Інкрементувати
+NEXT_NUM=$((LAST_NUM + 1))
+NEXT_TAG="v${NEXT_NUM}"
 
-# Розібрати MAJOR.MINOR
-IFS='.' read -r MAJOR MINOR <<< "${VERSION#v}"
+echo "Last tag: $LAST_TAG"
+echo "Next tag: $NEXT_TAG"
 
-# Інкрементувати MINOR
-((MINOR++))
+# Побудувати Docker-образ з двома тегами: latest і v0.x
+docker build -t witcherua/test-soundstorm:latest -t witcherua/test-soundstorm:$NEXT_TAG .
 
-# bump MAJOR якщо MINOR >= 10
-if ((MINOR >= 10)); then
-  ((MAJOR++))
-  MINOR=0
+# Запушити обидва теги
+docker push witcherua/test-soundstorm:latest
+docker push witcherua/test-soundstorm:$NEXT_TAG
+
+# Створити git-тег, якщо його ще немає
+if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
+  echo "Git tag $NEXT_TAG вже існує, пропускаю..."
+else
+  git tag "$NEXT_TAG"
+  git push origin "$NEXT_TAG"
 fi
 
-NEW_VERSION="v$MAJOR.$MINOR"
-
-# 🔁 Цикл: якщо тег вже існує — інкрементуємо далі
-while git rev-parse "$NEW_VERSION" >/dev/null 2>&1; do
-  ((MINOR++))
-  if ((MINOR >= 10)); then
-    ((MAJOR++))
-    MINOR=0
-  fi
-  NEW_VERSION="v$MAJOR.$MINOR"
-done
-
-# Створити і запушити новий тег
-git tag "$NEW_VERSION"
-git push origin "$NEW_VERSION"
-echo "✅ Створено тег: $NEW_VERSION"
-
-# Вивести notice у GitHub Actions
-echo "::notice title=Version bumped::$NEW_VERSION"
-
-# Передати значення у GITHUB_OUTPUT (без 'v')
-if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-  echo "tag=${NEW_VERSION#v}" >> "$GITHUB_OUTPUT"
-fi
+# Вивести тег як output для GitHub Actions
+echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
