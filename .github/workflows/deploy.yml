@@ -25,8 +25,7 @@ jobs:
         id: bump
         run: |
           chmod +x version.sh
-          NEW_VERSION=$(./version.sh)
-          echo "tag=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          ./version.sh   # version.sh сам пише tag=$NEXT_TAG у $GITHUB_OUTPUT
 
       - name: Build and push image
         run: |
@@ -57,3 +56,4 @@ jobs:
               -v /etc/letsencrypt:/etc/letsencrypt:ro \
               --restart unless-stopped \
               witcherua/test-soundstorm:latest
+
