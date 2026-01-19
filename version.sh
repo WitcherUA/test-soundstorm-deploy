@@ -17,23 +17,24 @@ fi
 NEXT_NUM=$((LAST_NUM + 1))
 NEXT_TAG="v${NEXT_NUM}"
 
+# Інформативні повідомлення у stderr
 echo "Last remote tag: $LAST_TAG" >&2
 echo "Next tag will be $NEXT_TAG" >&2
 
 # Побудувати Docker‑образ з двома тегами: latest і vX
-docker build -t witcherua/test-soundstorm:latest -t witcherua/test-soundstorm:$NEXT_TAG .
+docker build -t witcherua/test-soundstorm:latest -t witcherua/test-soundstorm:$NEXT_TAG . >&2
 
 # Запушити обидва теги
-docker push witcherua/test-soundstorm:latest
-docker push witcherua/test-soundstorm:$NEXT_TAG
+docker push witcherua/test-soundstorm:latest >&2
+docker push witcherua/test-soundstorm:$NEXT_TAG >&2
 
 # Створити git‑тег локально і запушити його (якщо ще немає)
 if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
   echo "Local tag $NEXT_TAG вже існує, пропускаю..." >&2
 else
   git tag "$NEXT_TAG"
-  git push origin "$NEXT_TAG"
+  git push origin "$NEXT_TAG" >&2
 fi
 
-# Записати output для GitHub Actions
+# Записати output для GitHub Actions (єдиний рядок у stdout)
 echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
