@@ -30,9 +30,11 @@ jobs:
       - name: Build and push image
         run: |
           docker buildx build \
-            --tag witcherua/test-soundstorm:${{ env.VERSION }} \
-            --tag witcherua/test-soundstorm:latest \
+            --platform linux/amd64 \
+            -t witcherua/test-soundstorm:latest \
+            -t witcherua/test-soundstorm:v${{ steps.bump.outputs.tag }} \
             --push .
+
 
   deploy:
     runs-on: ubuntu-latest
