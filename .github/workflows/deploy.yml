@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted   # ✅ тепер виконується на VM
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
         id: bump
         run: |
           chmod +x version.sh
-          ./version.sh   # version.sh сам пише tag=$NEXT_TAG у $GITHUB_OUTPUT
+          ./version.sh   # version.sh має записати NEXT_TAG у $GITHUB_OUTPUT
 
       - name: Build and push image
         run: |
@@ -36,24 +36,26 @@ jobs:
             --push .
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted   # ✅ деплой теж на VM
     needs: build
     steps:
-      - name: Deploy to VM via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          script: |
-            docker pull witcherua/test-soundstorm:latest
-            docker stop test-soundstorm || true
-            docker rm test-soundstorm || true
-            docker run -d \
-              --name test-soundstorm \
-              -p 80:80 -p 443:443 \
-              -v /etc/letsencrypt:/etc/letsencrypt:ro \
-              --restart unless-stopped \
-              witcherua/test-soundstorm:latest
+      - name: Deploy container
+        run: |
+          echo "🔍 Перевірка порту 80..."
+          if lsof -i :80 | grep LISTEN; then
+            echo "⚠️ Порт 80 зайнятий. Зупиняємо nginx..."
+            sudo systemctl stop nginx || true
+          fi
 
+          echo "🚀 Запуск контейнера..."
+          docker pull witcherua/test-soundstorm:${{ steps.bump.outputs.tag }}
+          docker stop test-soundstorm || true
+          docker rm test-soundstorm || true
+          docker run -d \
+            --name test-soundstorm \
+            -p 80:80 -p 443:443 \
+            -v /etc/letsencrypt:/etc/letsencrypt:ro \
+            --restart unless-stopped \
+            witcherua/test-soundstorm:${{ steps.bump.outputs.tag }}
+
+          echo "✅ Деплой завершено успішно!"
