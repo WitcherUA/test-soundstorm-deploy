@@ -42,7 +42,7 @@ jobs:
       - name: Deploy container
         run: |
           echo "🔍 Перевірка порту 80..."
-          if lsof -i :80 | grep LISTEN; then
+          if ss -ltn | grep ':80 '; then
             echo "⚠️ Порт 80 зайнятий. Зупиняємо nginx..."
             sudo systemctl stop nginx || true
           fi
@@ -58,4 +58,5 @@ jobs:
             --restart unless-stopped \
             witcherua/test-soundstorm:${{ steps.bump.outputs.tag }}
 
-          echo "✅ Деплой завершено успішно!"
+            echo "✅ Деплой завершено успішно!"
+
