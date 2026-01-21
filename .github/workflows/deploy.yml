@@ -58,5 +58,5 @@ jobs:
             --restart unless-stopped \
             witcherua/test-soundstorm:${{ steps.bump.outputs.tag }}
 
-            echo "✅ Деплой завершено успішно!"
+          echo "✅ Деплой завершено успішно!"
 
