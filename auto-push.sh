@@ -1,19 +1,33 @@
 #!/bin/bash
+set -e
 
-cd ~/test-soundstorm-deploy || exit 1
+DEPLOY_VERSION="${1:-v13}"
 
-echo "🔍 Перевіряємо зміни..."
-git add .
+echo "🔍 Перевірка порту 80..."
+if ss -ltn | grep ':80 '; then
+    echo "⚠️ Порт 80 зайнятий. Зупиняємо nginx..."
+    sudo systemctl stop nginx || true
+fi
 
-# Коміт з міткою часу
-git commit -m "Auto-push from VM: $(date '+%Y-%m-%d %H:%M:%S')" || echo "ℹ️ Немає змін для коміту"
+echo "🔒 Перевірка сертифікатів..."
+if ! sudo ls /etc/letsencrypt/live/test.soundstorm.pp.ua/fullchain.pem >/dev/null 2>&1; then
+    echo "❌ Сертифікат не знайдено!"
+    exit 1
+fi
 
-# Пуш у main з перевіркою конфліктів
-echo "📤 Відправляємо у GitHub..."
-git pull --rebase origin main || {
-  echo "⚠️ Конфлікт при rebase, спробуй вирішити вручну!"
-  exit 1
-}
+echo "📦 Завантаження образу witcherua/test-soundstorm:$DEPLOY_VERSION"
+sudo docker pull witcherua/test-soundstorm:$DEPLOY_VERSION
 
-git push origin main --force-with-lease
-echo "✅ Автопуш завершено, GitHub Actions має стартувати!"
+echo "🧹 Видалення старого контейнера..."
+sudo docker stop test-soundstorm || true
+sudo docker rm test-soundstorm || true
+
+echo "🚀 Запуск нового контейнера версії $DEPLOY_VERSION"
+sudo docker run -d \
+  --name test-soundstorm \
+  -v /etc/letsencrypt:/etc/letsencrypt:ro \
+  -p 80:80 -p 443:443 \
+  --restart unless-stopped \
+  witcherua/test-soundstorm:$DEPLOY_VERSION
+
+echo "✅ Контейнер запущено успішно!"
