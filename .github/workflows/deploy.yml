@@ -25,7 +25,7 @@ jobs:
       - name: Завантаження образу
         run: |
           echo "📦 Завантаження образу..."
-          sudo docker pull witcherua/test-soundstorm:
+          sudo docker pull witcherua/test-soundstorm:v13
 
       - name: Видалення старого контейнера
         run: |
@@ -41,7 +41,7 @@ jobs:
             -v /etc/letsencrypt:/etc/letsencrypt:ro \
             -p 80:80 -p 443:443 \
             --restart unless-stopped \
-            witcherua/test-soundstorm:
+            witcherua/test-soundstorm:v13
 
       - name: Перевірка статусу контейнера
         run: |
