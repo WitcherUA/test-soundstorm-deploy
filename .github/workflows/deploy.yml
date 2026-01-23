@@ -48,7 +48,7 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: Debug tag
-        run: echo "📌 Деплой версії: '${{ env.TAG }}'"
+        run: echo 📌 Деплой версії: '${{ env.TAG }}'
 
       - name: Deploy to local VM
         run: |
