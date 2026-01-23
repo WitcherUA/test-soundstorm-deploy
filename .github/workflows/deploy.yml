@@ -1,45 +1,20 @@
-name: Build, Push and Deploy
+name: Deploy test-soundstorm
 
 on:
+  workflow_dispatch:   # ручний запуск
   push:
     branches:
-      - main
+      - main           # деплой при пуші в main
 
 jobs:
-  build:
-    runs-on: self-hosted   # ✅ тепер виконується на VM
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Bump version
-        id: bump
-        run: |
-          chmod +x version.sh
-          ./version.sh   # version.sh має записати NEXT_TAG у $GITHUB_OUTPUT
-
-      - name: Build and push image
-        run: |
-          docker buildx build \
-            --platform linux/amd64 \
-            -t witcherua/test-soundstorm:latest \
-            -t witcherua/test-soundstorm:${{ steps.bump.outputs.tag }} \
-            --push .
-
   deploy:
-    runs-on: self-hosted   # ✅ деплой теж на VM
-    needs: build
+    runs-on: self-hosted   # використовує твій self-hosted runner
+
     steps:
-      - name: Deploy container
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Перевірка порту 80 і зупинка nginx
         run: |
           echo "🔍 Перевірка порту 80..."
           if ss -ltn | grep ':80 '; then
@@ -47,16 +22,28 @@ jobs:
             sudo systemctl stop nginx || true
           fi
 
-          echo "🚀 Запуск контейнера..."
-          docker pull witcherua/test-soundstorm:${{ steps.bump.outputs.tag }}
-          docker stop test-soundstorm || true
-          docker rm test-soundstorm || true
-          docker run -d \
+      - name: Завантаження образу
+        run: |
+          echo "📦 Завантаження образу..."
+          sudo docker pull witcherua/test-soundstorm:
+
+      - name: Видалення старого контейнера
+        run: |
+          echo "🧹 Видалення старого контейнера..."
+          sudo docker stop test-soundstorm || true
+          sudo docker rm test-soundstorm || true
+
+      - name: Запуск нового контейнера
+        run: |
+          echo "🚀 Запуск нового контейнера..."
+          sudo docker run -d \
             --name test-soundstorm \
-            -p 80:80 -p 443:443 \
             -v /etc/letsencrypt:/etc/letsencrypt:ro \
+            -p 80:80 -p 443:443 \
             --restart unless-stopped \
-            witcherua/test-soundstorm:${{ steps.bump.outputs.tag }}
+            witcherua/test-soundstorm:
 
-          echo "✅ Деплой завершено успішно!"
-
+      - name: Перевірка статусу контейнера
+        run: |
+          echo "📊 Статус контейнера:"
+          sudo docker ps -a | grep test-soundstorm
