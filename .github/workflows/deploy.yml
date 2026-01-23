@@ -45,27 +45,36 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
+            echo "Pulling latest image..."
             docker pull witcherua/test-soundstorm:latest
+
+            echo "Stopping old container..."
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
+
+            echo "Starting new container with SSL certs mounted..."
             docker run -d \
               --name test-soundstorm \
               -p 80:80 \
               -p 443:443 \
+              --restart always \
+              -v /etc/letsencrypt:/etc/letsencrypt:ro \
               witcherua/test-soundstorm:latest
 
+            echo "Updating Nginx config..."
             sudo bash -c 'cat > /etc/nginx/sites-available/default <<EOF
             server {
               listen 80;
-              server_name _;
+              server_name test.soundstorm.pp.ua;
               return 301 https://\$host\$request_uri;
             }
 
             server {
-              listen 443 ssl;
-              server_name _;
-              ssl_certificate /etc/ssl/certs/ssl-cert-snakeoil.pem;
-              ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+              listen 443 ssl http2;
+              server_name test.soundstorm.pp.ua;
+
+              ssl_certificate /etc/letsencrypt/live/test.soundstorm.pp.ua/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/test.soundstorm.pp.ua/privkey.pem;
 
               location / {
                 try_files \$uri \$uri/ =404;
@@ -73,4 +82,7 @@ jobs:
             }
             EOF'
 
+            echo "Restarting Nginx..."
             sudo systemctl restart nginx
+
+            echo "Deployment finished successfully!"
