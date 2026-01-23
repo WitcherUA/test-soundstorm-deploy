@@ -1,29 +1,73 @@
-name: Auto Deploy test-soundstorm
+name: Local Deploy test-soundstorm
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Версія Docker-образу (наприклад, v13)'
-        required: true
-        default: 'v13'
-
   push:
     branches:
-      - main
+      - pipeline-setup
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout репозиторію
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Вивід версії деплою
-        run: echo "📌 Деплой версії: ${{ github.event.inputs.version || 'v13' }}"
-
-      - name: Запуск auto-push.sh з версією
+      - name: Read VERSION file
+        id: read
         run: |
-          chmod +x ./auto-push.sh
-          ./auto-push.sh "${{ github.event.inputs.version || 'v13' }}"
+          TAG=$(tr -d '\n\r ' < VERSION)
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build image
+        run: |
+          docker build -t witcherua/test-soundstorm:${{ env.TAG }} .
+
+      - name: Push image
+        run: |
+          docker push witcherua/test-soundstorm:${{ env.TAG }}
+
+  deploy:
+    runs-on: self-hosted
+    needs: build-and-push
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read VERSION file
+        id: read
+        run: |
+          TAG=$(tr -d '\n\r ' < VERSION)
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Debug tag
+        run: echo "📌 Деплой версії: '${{ env.TAG }}'"
+
+      - name: Deploy to local VM
+        run: |
+          IMAGE="witcherua/test-soundstorm:${{ env.TAG }}"
+
+          echo "🛑 Зупинка старого контейнера..."
+          sudo docker stop test-soundstorm || true
+          sudo docker rm test-soundstorm || true
+
+          echo "📦 Завантаження нового образу..."
+          sudo docker pull $IMAGE
+
+          echo "🚀 Запуск нового контейнера..."
+          sudo docker run -d \
+            --name test-soundstorm \
+            --restart unless-stopped \
+            -p 80:80 \
+            -p 443:443 \
+            -v /etc/letsencrypt:/etc/letsencrypt:ro \
+            $IMAGE
+
+          echo "✅ Деплой завершено успішно!"
