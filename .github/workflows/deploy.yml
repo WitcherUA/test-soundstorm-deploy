@@ -18,7 +18,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }} # має бути witcherua
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract version
@@ -32,8 +32,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ env.VERSION }}
+            witcherua/test-soundstorm:latest
+            witcherua/test-soundstorm:${{ env.VERSION }}
 
   deploy:
     runs-on: self-hosted
@@ -46,16 +46,16 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
-            docker stop myapp || true
-            docker rm myapp || true
+            docker pull witcherua/test-soundstorm:latest
+            docker stop test-soundstorm || true
+            docker rm test-soundstorm || true
             docker run -d \
-              --name myapp \
+              --name test-soundstorm \
               -p 80:80 \
               -p 443:443 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+              witcherua/test-soundstorm:latest
 
-            # Конфігурація Nginx для редіректу
+            # Nginx: редірект з 80 на 443
             sudo bash -c 'cat > /etc/nginx/sites-available/default <<EOF
             server {
               listen 80;
