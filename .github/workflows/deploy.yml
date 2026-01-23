@@ -16,17 +16,14 @@ jobs:
   deploy:
     runs-on: self-hosted
 
-    env:
-      DEPLOY_VERSION: ${{ github.event.inputs.version || 'v13' }}
-
     steps:
       - name: Checkout репозиторію
         uses: actions/checkout@v3
 
       - name: Вивід версії деплою
-        run: echo "📌 Деплой версії: $DEPLOY_VERSION"
+        run: echo "📌 Деплой версії: ${{ github.event.inputs.version || 'v13' }}"
 
       - name: Запуск auto-push.sh з версією
         run: |
           chmod +x ./auto-push.sh
-          ./auto-push.sh "$DEPLOY_VERSION"
+          ./auto-push.sh "${{ github.event.inputs.version || 'v13' }}"
