@@ -1,49 +1,63 @@
-name: Deploy test-soundstorm
+name: Auto Deploy test-soundstorm
 
 on:
-  workflow_dispatch:   # ручний запуск
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версія деплою (наприклад, v13)'
+        required: true
+        default: 'v13'
+
   push:
     branches:
-      - main           # деплой при пуші в main
+      - main
 
 jobs:
   deploy:
-    runs-on: self-hosted   # використовує твій self-hosted runner
+    runs-on: self-hosted
+
+    env:
+      DEPLOY_VERSION: ${{ github.event.inputs.version || 'v13' }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout репозиторію
         uses: actions/checkout@v3
+
+      - name: Вивід версії деплою
+        run: echo "📌 Деплой версії: $DEPLOY_VERSION"
 
       - name: Перевірка порту 80 і зупинка nginx
         run: |
-          echo "🔍 Перевірка порту 80..."
           if ss -ltn | grep ':80 '; then
             echo "⚠️ Порт 80 зайнятий. Зупиняємо nginx..."
             sudo systemctl stop nginx || true
           fi
 
+      - name: Перевірка сертифікатів
+        run: |
+          echo "🔒 Перевірка сертифікатів..."
+          sudo ls /etc/letsencrypt/live/test.soundstorm.pp.ua/fullchain.pem || \
+          (echo "❌ Сертифікати не знайдено!" && exit 1)
+
       - name: Завантаження образу
         run: |
-          echo "📦 Завантаження образу..."
-          sudo docker pull witcherua/test-soundstorm:v13
+          echo "📦 Завантаження образу witcherua/test-soundstorm:$DEPLOY_VERSION"
+          sudo docker pull witcherua/test-soundstorm:$DEPLOY_VERSION
 
       - name: Видалення старого контейнера
         run: |
-          echo "🧹 Видалення старого контейнера..."
           sudo docker stop test-soundstorm || true
           sudo docker rm test-soundstorm || true
 
       - name: Запуск нового контейнера
         run: |
-          echo "🚀 Запуск нового контейнера..."
+          echo "🚀 Запуск контейнера версії $DEPLOY_VERSION"
           sudo docker run -d \
             --name test-soundstorm \
             -v /etc/letsencrypt:/etc/letsencrypt:ro \
             -p 80:80 -p 443:443 \
             --restart unless-stopped \
-            witcherua/test-soundstorm:v13
+            witcherua/test-soundstorm:$DEPLOY_VERSION
 
-      - name: Перевірка статусу контейнера
-        run: |
-          echo "📊 Статус контейнера:"
-          sudo docker ps -a | grep test-soundstorm
+      - name: Перевірка статусу
+        run: sudo docker ps -a | grep test-soundstorm
