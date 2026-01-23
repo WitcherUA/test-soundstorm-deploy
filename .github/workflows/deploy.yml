@@ -1,23 +1,19 @@
-name: Local Deploy test-soundstorm
+name: CI/CD Deploy
 
 on:
   push:
     branches:
-      - pipeline-setup
+      - main
 
 jobs:
   build-and-push:
     runs-on: self-hosted
-
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Read VERSION file
-        id: read
-        run: |
-          TAG=$(tr -d '\n\r ' < VERSION)
-          echo "TAG=$TAG" >> $GITHUB_ENV
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -25,50 +21,61 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build image
+      - name: Extract version
+        id: version
         run: |
-          docker build -t witcherua/test-soundstorm:${{ env.TAG }} .
+          echo "VERSION=$(date +'%Y.%m.%d')-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
 
-      - name: Push image
-        run: |
-          docker push witcherua/test-soundstorm:${{ env.TAG }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/myapp:${{ env.VERSION }}
 
   deploy:
     runs-on: self-hosted
     needs: build-and-push
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Deploy to VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            # Оновлюємо контейнер
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
+            docker stop myapp || true
+            docker rm myapp || true
+            docker run -d \
+              --name myapp \
+              -p 80:80 \
+              -p 443:443 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
 
-      - name: Read VERSION file
-        id: read
-        run: |
-          TAG=$(tr -d '\n\r ' < VERSION)
-          echo "TAG=$TAG" >> $GITHUB_ENV
+            # Конфігурація Nginx для редіректу
+            sudo bash -c 'cat > /etc/nginx/sites-available/default <<EOF
+            server {
+              listen 80;
+              server_name _;
+              return 301 https://\$host\$request_uri;
+            }
 
-      - name: Debug tag
-        run: 'echo "📌 Деплой версії: ${{ env.TAG }}"'
+            server {
+              listen 443 ssl;
+              server_name _;
+              ssl_certificate /etc/ssl/certs/ssl-cert-snakeoil.pem;
+              ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
 
+              location / {
+                # тут вже без proxy_pass
+                root /var/www/html;
+                index index.html;
+              }
+            }
+            EOF'
 
-      - name: Deploy to local VM
-        run: |
-          IMAGE="witcherua/test-soundstorm:${{ env.TAG }}"
-
-          echo "🛑 Зупинка старого контейнера..."
-          sudo docker stop test-soundstorm || true
-          sudo docker rm test-soundstorm || true
-
-          echo "📦 Завантаження нового образу..."
-          sudo docker pull $IMAGE
-
-          echo "🚀 Запуск нового контейнера..."
-          sudo docker run -d \
-            --name test-soundstorm \
-            --restart unless-stopped \
-            -p 80:80 \
-            -p 443:443 \
-            -v /etc/letsencrypt:/etc/letsencrypt:ro \
-            $IMAGE
-
-          echo "✅ Деплой завершено успішно!"
+            sudo systemctl restart nginx
