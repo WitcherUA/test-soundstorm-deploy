@@ -55,7 +55,7 @@ jobs:
               -p 443:443 \
               ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
 
-            # Nginx: редірект з 80 на 443, без proxy_pass
+            # Конфігурація Nginx для редіректу
             sudo bash -c 'cat > /etc/nginx/sites-available/default <<EOF
             server {
               listen 80;
@@ -70,7 +70,6 @@ jobs:
               ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
 
               location / {
-                # Немає proxy_pass — контейнер сам обробляє запити
                 try_files \$uri \$uri/ =404;
               }
             }
