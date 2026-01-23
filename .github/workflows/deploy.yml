@@ -46,7 +46,6 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            # Оновлюємо контейнер
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
             docker stop myapp || true
             docker rm myapp || true
@@ -56,7 +55,7 @@ jobs:
               -p 443:443 \
               ${{ secrets.DOCKERHUB_USERNAME }}/myapp:latest
 
-            # Конфігурація Nginx для редіректу
+            # Nginx: редірект з 80 на 443, без proxy_pass
             sudo bash -c 'cat > /etc/nginx/sites-available/default <<EOF
             server {
               listen 80;
@@ -71,9 +70,8 @@ jobs:
               ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
 
               location / {
-                # тут вже без proxy_pass
-                root /var/www/html;
-                index index.html;
+                # Немає proxy_pass — контейнер сам обробляє запити
+                try_files \$uri \$uri/ =404;
               }
             }
             EOF'
