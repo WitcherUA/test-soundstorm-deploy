@@ -59,10 +59,9 @@ jobs:
             echo "Starting new container with SSL certs mounted..."
             docker run -d \
               --name test-soundstorm \
-              -p 80:80 \
-              -p 443:443 \
-              --restart always \
+              -p 80:80 -p 443:443 \
               -v /etc/letsencrypt:/etc/letsencrypt:ro \
+              --restart always \
               witcherua/test-soundstorm:latest
 
             echo "Wait a moment for Docker to create port bindings..."
