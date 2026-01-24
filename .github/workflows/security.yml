@@ -9,14 +9,17 @@ jobs:
   zap_scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Prepare output directory
+        run: mkdir -p zap_output
 
       - name: Run OWASP ZAP Baseline Scan
         run: |
           docker run --rm -u $(id -u):$(id -g) \
             -e HOME=/zap/wrk \
-            -v $(pwd):/zap/wrk:rw \
+            -v $(pwd)/zap_output:/zap/wrk:rw \
             ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
             -t https://test.soundstorm.pp.ua \
             -r zap_report.html \
@@ -27,6 +30,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: |
-            zap_report.*
-            zap_out.json
+          path: zap_output/*
