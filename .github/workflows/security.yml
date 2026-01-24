@@ -15,6 +15,7 @@ jobs:
       - name: Run OWASP ZAP Baseline Scan
         run: |
           docker run --rm -u $(id -u):$(id -g) \
+            -e HOME=/zap/wrk \
             -v $(pwd):/zap/wrk:rw \
             ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
             -t https://test.soundstorm.pp.ua \
