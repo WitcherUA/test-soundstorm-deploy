@@ -15,11 +15,12 @@ jobs:
       - name: Run OWASP ZAP Baseline Scan
         run: |
           docker run --rm -v $(pwd):/zap/wrk:rw \
-            owasp/zap2docker-stable zap-baseline.py \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
             -t https://test.soundstorm.pp.ua \
             -r zap_report.html \
             -J zap_report.json \
             -z "-config api.disablekey=true"
+
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
