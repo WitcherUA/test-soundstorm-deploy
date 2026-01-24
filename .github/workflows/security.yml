@@ -21,7 +21,6 @@ jobs:
             -t https://test.soundstorm.pp.ua \
             -r zap_report.html \
             -J zap_report.json \
-            -w /zap/wrk/zap.yaml \
             -z "-config api.disablekey=true"
 
 
