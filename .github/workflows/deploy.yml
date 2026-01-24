@@ -38,17 +38,21 @@ jobs:
     needs: build-and-push
     steps:
       - name: Deploy to VM via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
+            set -e
             echo "Pulling latest image..."
             docker pull witcherua/test-soundstorm:latest
 
-            echo "Stopping old container..."
+            echo "Stopping host nginx to free ports 80/443 (container will handle SSL)..."
+            sudo systemctl stop nginx || true
+
+            echo "Stopping and removing old container if exists..."
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
 
@@ -61,28 +65,17 @@ jobs:
               -v /etc/letsencrypt:/etc/letsencrypt:ro \
               witcherua/test-soundstorm:latest
 
-            echo "Updating Nginx config..."
-            sudo bash -c 'cat > /etc/nginx/sites-available/default <<EOF
-            server {
-              listen 80;
-              server_name test.soundstorm.pp.ua;
-              return 301 https://\$host\$request_uri;
-            }
+            echo "Wait a moment for Docker to create port bindings..."
+            sleep 2
 
-            server {
-              listen 443 ssl http2;
-              server_name test.soundstorm.pp.ua;
+            echo "Container status and port bindings:"
+            docker ps --filter name=test-soundstorm --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+            docker port test-soundstorm || true
 
-              ssl_certificate /etc/letsencrypt/live/test.soundstorm.pp.ua/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/test.soundstorm.pp.ua/privkey.pem;
+            echo "Check host listeners (80/443):"
+            sudo ss -ltnp | grep -E ':(80|443)\s' || true
 
-              location / {
-                try_files \$uri \$uri/ =404;
-              }
-            }
-            EOF'
-
-            echo "Restarting Nginx..."
-            sudo systemctl restart nginx
+            echo "Tail container logs (last 100 lines):"
+            docker logs test-soundstorm --tail 100 || true
 
             echo "Deployment finished successfully!"
