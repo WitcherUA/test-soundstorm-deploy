@@ -1,58 +1,77 @@
-name: Deploy
+name: CI/CD Deploy
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
 
 jobs:
-  deploy:
-    name: Deploy to VM via SSH
-    runs-on: ubuntu-latest
-
+  build-and-push:
+    runs-on: self-hosted
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version
+        run: echo "VERSION=$(date +'%Y.%m.%d')-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            witcherua/test-soundstorm:latest
+            witcherua/test-soundstorm:${{ env.VERSION }}
+
+  deploy-and-scan:
+    runs-on: self-hosted
+    needs: build-and-push
+    steps:
+      - name: Deploy to VM via SSH and run ZAP
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            set -e
-            echo "Pulling latest image..."
             docker pull witcherua/test-soundstorm:latest
 
-            echo "Stopping host nginx to free ports 80/443 (container will handle SSL)..."
-            sudo systemctl stop nginx || true
-
-            echo "Stopping and removing old container if exists..."
+            # Зупиняємо старі контейнери
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
+            docker stop zap || true
+            docker rm zap || true
 
-            echo "Starting new container with SSL certs mounted..."
+            # Запускаємо додаток
             docker run -d \
               --name test-soundstorm \
-              -p 80:80 -p 443:443 \
-              -v /etc/letsencrypt:/etc/letsencrypt:ro \
-              --restart always \
+              -p 80:80 \
+              -p 443:443 \
               witcherua/test-soundstorm:latest
 
-            echo "Wait a moment for Docker to create port bindings..."
-            sleep 2
+            # Запускаємо OWASP ZAP у daemon-режимі
+            docker run -d \
+              --name zap \
+              -p 8080:8080 \
+              owasp/zap2docker-stable \
+              zap.sh -daemon -host 0.0.0.0 -port 8080
 
-            echo "Container status and port bindings:"
-            docker ps --filter name=test-soundstorm --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
-            docker port test-soundstorm || true
+            # Чекаємо кілька секунд щоб додаток стартував
+            sleep 20
 
-            echo "Check host listeners (80/443):"
-            sudo ss -ltnp | grep -E ':(80|443)\s' || true
+            # Запускаємо baseline scan проти сайту
+            docker exec zap zap-baseline.py -t http://localhost:80 -r /zap/wrk/zap_report.html
 
-            echo "Tail container logs (last 100 lines):"
-            docker logs test-soundstorm --tail 100 || true
-
-            echo "✅ Deployment finished successfully!"
+            # Копіюємо звіт на сервер
+            docker cp zap:/zap/wrk/zap_report.html ./zap_report.html
