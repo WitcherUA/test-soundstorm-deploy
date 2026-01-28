@@ -47,21 +47,17 @@ jobs:
           script: |
             docker pull witcherua/test-soundstorm:latest
 
-            # Зупиняємо старі контейнери
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
 
-            # Запускаємо додаток
             docker run -d \
               --name test-soundstorm \
               -p 80:80 \
               -p 443:443 \
               witcherua/test-soundstorm:latest
 
-            # Чекаємо щоб додаток стартував
             sleep 20
 
-            # Запускаємо baseline scan окремим контейнером
             docker run --rm \
               --network host \
               -v /home/${USER}:/zap/wrk \
