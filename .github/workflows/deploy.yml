@@ -61,7 +61,6 @@ jobs:
             docker run --rm \
               --network host \
               -v /tmp/zap:/zap/wrk \
-              -v /home/${USER}:/zap/wrk \
               ghcr.io/zaproxy/zaproxy:latest \
               zap-baseline.py -t http://localhost:80 -r zap_report.html
 
