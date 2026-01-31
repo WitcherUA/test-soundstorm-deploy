@@ -63,7 +63,7 @@ jobs:
             chown 1000:1000 /tmp/zap
 
             # Очікування готовності сервісу
-            until curl -sk https://127.0.0.1:443 >/dev/null; do
+            until curl -sk https://test.soundstorm.pp.ua >/dev/null; do
               echo "waiting for service..."
               sleep 5
             done
@@ -73,7 +73,7 @@ jobs:
               --network host \
               -v /tmp/zap:/zap/wrk \
               ghcr.io/zaproxy/zaproxy:latest \
-              zap-baseline.py -t https://127.0.0.1:443 -r zap_report.html -I
+              zap-baseline.py -t https://test.soundstorm.pp.ua -r zap_report.html -I
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
