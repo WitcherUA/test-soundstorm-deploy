@@ -58,8 +58,17 @@ jobs:
               --restart always \
               witcherua/test-soundstorm:latest
 
-            sleep 40
+            # Підготовка директорії для ZAP
+            mkdir -p /tmp/zap
+            chown 1000:1000 /tmp/zap
 
+            # Очікування готовності сервісу
+            until curl -sk https://localhost:443 >/dev/null; do
+              echo "waiting for service..."
+              sleep 5
+            done
+
+            # Запуск ZAP baseline scan
             docker run --rm \
               --network host \
               -v /tmp/zap:/zap/wrk \
@@ -70,4 +79,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: /home/${{ secrets.SERVER_USER }}/zap_report.html
+          path: /tmp/zap/zap_report.html
