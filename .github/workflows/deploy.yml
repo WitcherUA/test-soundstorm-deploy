@@ -1,19 +1,23 @@
-name: CI/CD Deploy
+name: Deploy to AWS
 
 on:
   push:
     branches:
-      - main
+      - pipeline-setup
 
 jobs:
   build-and-push:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Read VERSION file
+        id: read
+        run: |
+          TAG=$(tr -d '\n\r ' < VERSION)
+          echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -21,67 +25,55 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract version
-        run: echo "VERSION=$(date +'%Y.%m.%d')-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+      - name: Build image
+        run: docker build -t ${{ secrets.DOCKERHUB_REPO }}:${{ env.TAG }} .
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            witcherua/test-soundstorm:latest
-            witcherua/test-soundstorm:${{ env.VERSION }}
+      - name: Push image
+        run: docker push ${{ secrets.DOCKERHUB_REPO }}:${{ env.TAG }}
 
-  deploy-and-scan:
-    runs-on: self-hosted
+  deploy:
+    runs-on: ubuntu-latest
     needs: build-and-push
-    steps:
-      - name: Deploy to VM via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          script: |
-            docker pull witcherua/test-soundstorm:latest
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read VERSION file
+        id: read
+        run: |
+          TAG=$(tr -d '\n\r ' < VERSION)
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_KEY }}
+
+      - name: Deploy to AWS VM
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_REPO }}:${{ env.TAG }}"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} "
+            set -e
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
 
+            docker pull $IMAGE
+
             docker run -d \
               --name test-soundstorm \
+              --restart always \
               -p 80:80 \
               -p 443:443 \
-              -v /etc/letsencrypt:/etc/letsencrypt:ro \
-              --restart always \
-              witcherua/test-soundstorm:latest
-
-            mkdir -p /tmp/zap
-            chown 1000:1000 /tmp/zap
-
-            until curl -sk https://test.soundstorm.pp.ua >/dev/null; do
-              echo "waiting for service..."
-              sleep 5
-            done
-
-            docker run --rm \
-              --network host \
-              -v /tmp/zap:/zap/wrk \
-              ghcr.io/zaproxy/zaproxy:latest \
-              zap-baseline.py -t https://test.soundstorm.pp.ua -r /zap/wrk/zap_report.html -I
-
-      - name: Upload ZAP Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-report
-          path: /tmp/zap/zap_report.html
+              -v /etc/letsencrypt/live/test.soundstorm.pp.ua/fullchain.pem:/certs/fullchain.pem:ro \
+              -v /etc/letsencrypt/live/test.soundstorm.pp.ua/privkey.pem:/certs/privkey.pem:ro \
+              $IMAGE
+          "
 
   scan-full:
     name: Full Security Scan (ZAP Daemon Mode)
     runs-on: ubuntu-latest
-    needs: deploy-and-scan
+    needs: deploy
 
     steps:
       - name: Start ZAP in daemon mode
@@ -109,7 +101,7 @@ jobs:
 
       - name: Spider the target
         run: |
-          curl "http://localhost:8080/JSON/spider/action/scan/?url=https://soundstorm.pp.ua"
+          curl "http://localhost:8080/JSON/spider/action/scan/?url=https://test.soundstorm.pp.ua"
           sleep 10
 
       - name: Wait for spider to finish
@@ -121,7 +113,7 @@ jobs:
 
       - name: Active scan
         run: |
-          curl "http://localhost:8080/JSON/ascan/action/scan/?url=https://soundstorm.pp.ua"
+          curl "http://localhost:8080/JSON/ascan/action/scan/?url=https://test.soundstorm.pp.ua"
           sleep 10
 
       - name: Wait for active scan to finish
@@ -149,7 +141,7 @@ jobs:
     steps:
       - name: Check site uptime
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://soundstorm.pp.ua)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://test.soundstorm.pp.ua)
           echo "HTTP Status: $STATUS" > monitor-report.txt
           if [ "$STATUS" != "200" ]; then
             echo "Site is DOWN or unhealthy" >> monitor-report.txt
@@ -158,7 +150,7 @@ jobs:
 
       - name: Check SSL certificate expiration
         run: |
-          EXPIRY=$(echo | openssl s_client -connect soundstorm.pp.ua:443 -servername soundstorm.pp.ua 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+          EXPIRY=$(echo | openssl s_client -connect test.soundstorm.pp.ua:443 -servername test.soundstorm.pp.ua 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
           EXPIRY_TS=$(date -d "$EXPIRY" +%s)
           NOW_TS=$(date +%s)
           DAYS_LEFT=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
