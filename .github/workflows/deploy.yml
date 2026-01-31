@@ -14,7 +14,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Read VERSION file
-        id: read
         run: |
           TAG=$(tr -d '\n\r ' < VERSION)
           echo "TAG=$TAG" >> $GITHUB_ENV
@@ -40,7 +39,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Read VERSION file
-        id: read
         run: |
           TAG=$(tr -d '\n\r ' < VERSION)
           echo "TAG=$TAG" >> $GITHUB_ENV
