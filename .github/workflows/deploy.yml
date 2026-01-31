@@ -63,7 +63,7 @@ jobs:
             chown 1000:1000 /tmp/zap
 
             # Очікування готовності сервісу
-            until curl -sk https://localhost:443 >/dev/null; do
+            until curl -sk https://127.0.0.1:443 >/dev/null; do
               echo "waiting for service..."
               sleep 5
             done
