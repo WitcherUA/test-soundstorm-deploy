@@ -45,11 +45,14 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
+            # Оновлення образу
             docker pull witcherua/test-soundstorm:latest
 
+            # Зупинка та видалення старого контейнера
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
 
+            # Запуск нового контейнера
             docker run -d \
               --name test-soundstorm \
               -p 80:80 \
@@ -62,18 +65,18 @@ jobs:
             mkdir -p /tmp/zap
             chown 1000:1000 /tmp/zap
 
-            # Очікування готовності сервісу
+            # Очікування готовності сервісу через домен
             until curl -sk https://test.soundstorm.pp.ua >/dev/null; do
               echo "waiting for service..."
               sleep 5
             done
 
-            # Запуск ZAP baseline scan
+            # Запуск ZAP baseline scan проти домену
             docker run --rm \
               --network host \
               -v /tmp/zap:/zap/wrk \
               ghcr.io/zaproxy/zaproxy:latest \
-              zap-baseline.py -t https://test.soundstorm.pp.ua -r zap_report.html -I
+              zap-baseline.py -t https://test.soundstorm.pp.ua -r /zap/wrk/zap_report.html -I
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
