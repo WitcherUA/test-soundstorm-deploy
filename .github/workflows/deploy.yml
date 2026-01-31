@@ -123,7 +123,13 @@ jobs:
               exit 1
             fi
 
-      - name: Upload Monitoring Report
+      - name: Upload monitoring report
         uses: actions/upload-artifact@v4
         with:
           name: monitor-report
+          path: ./monitor-report.html
+          if-no-files-found: warn
+          compression-level: 6
+          overwrite: false
+          include-hidden-files: false
+
