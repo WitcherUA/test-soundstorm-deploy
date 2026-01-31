@@ -46,10 +46,8 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           script: |
             docker pull witcherua/test-soundstorm:latest
-
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
-
             docker run -d \
               --name test-soundstorm \
               -p 80:80 \
@@ -58,92 +56,31 @@ jobs:
               --restart always \
               witcherua/test-soundstorm:latest
 
-            mkdir -p /tmp/zap
-            chown 1000:1000 /tmp/zap
+  zap-scan:
+    name: ZAP Baseline Scan via Compose
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-            until curl -sk https://test.soundstorm.pp.ua >/dev/null; do
-              echo "waiting for service..."
-              sleep 5
-            done
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
 
-            docker run --rm \
-              -v /tmp/zap:/zap/wrk \
-              ghcr.io/zaproxy/zaproxy:latest \
-              zap-baseline.py -t https://test.soundstorm.pp.ua -r /zap/wrk/zap_report.html -I
+      - name: Run ZAP baseline scan
+        run: |
+          docker-compose up zap
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: /tmp/zap/zap_report.html
- 
-  scan-full:
-    name: Full Security Scan (ZAP Daemon Mode)
-    runs-on: ubuntu-latest
-    needs: deploy
+          path: zap-reports/zap_report.html
 
-    steps:
-      - name: Start ZAP in daemon mode
-        run: |
-          docker run -d --name zap-daemon \
-            -p 8080:8080 \
-            ghcr.io/zaproxy/zaproxy:stable \
-            zap.sh -daemon \
-              -port 8080 \
-              -host 0.0.0.0 \
-              -config api.disablekey=true \
-              -config api.addrs.addr.name=.* \
-              -config api.addrs.addr.regex=true
-
-      - name: Wait for ZAP to start
-        run: |
-          for i in {1..30}; do
-            if curl -s http://localhost:8080/JSON/core/view/version/ > /dev/null; then
-              echo "ZAP is ready"
-              break
-            fi
-            echo "Waiting for ZAP..."
-            sleep 5
-          done
-
-      - name: Spider the target
-        run: |
-          curl "http://localhost:8080/JSON/spider/action/scan/?url=https://test.soundstorm.pp.ua"
-          sleep 10
-
-      - name: Wait for spider to finish
-        run: |
-          while [ "$(curl -s http://localhost:8080/JSON/spider/view/status/ | jq -r '.status')" != "100" ]; do
-            echo "Spider running..."
-            sleep 5
-          done
-
-      - name: Active scan
-        run: |
-          curl "http://localhost:8080/JSON/ascan/action/scan/?url=https://test.soundstorm.pp.ua"
-          sleep 10
-
-      - name: Wait for active scan to finish
-        run: |
-          while [ "$(curl -s http://localhost:8080/JSON/ascan/view/status/ | jq -r '.status')" != "100" ]; do
-            echo "Active scan running..."
-            sleep 5
-          done
-
-      - name: Generate HTML report
-        run: |
-          curl "http://localhost:8080/OTHER/core/other/htmlreport/" -o zap-full-report.html
-
-      - name: Upload Full Scan Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-full-report
-          path: zap-full-report.html
- 
   monitor:
     name: Monitoring Check
     runs-on: ubuntu-latest
-    needs: scan-full
+    needs: zap-scan
     steps:
       - name: Check site uptime
         run: |
@@ -184,4 +121,3 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: monitor-report
-          path: monitor-report.txt
