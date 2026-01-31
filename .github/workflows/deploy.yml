@@ -45,14 +45,11 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            # Оновлення образу
             docker pull witcherua/test-soundstorm:latest
 
-            # Зупинка та видалення старого контейнера
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
 
-            # Запуск нового контейнера
             docker run -d \
               --name test-soundstorm \
               -p 80:80 \
@@ -61,17 +58,14 @@ jobs:
               --restart always \
               witcherua/test-soundstorm:latest
 
-            # Підготовка директорії для ZAP
             mkdir -p /tmp/zap
             chown 1000:1000 /tmp/zap
 
-            # Очікування готовності сервісу через домен
             until curl -sk https://test.soundstorm.pp.ua >/dev/null; do
               echo "waiting for service..."
               sleep 5
             done
 
-            # Запуск ZAP baseline scan проти домену
             docker run --rm \
               --network host \
               -v /tmp/zap:/zap/wrk \
@@ -83,3 +77,113 @@ jobs:
         with:
           name: zap-report
           path: /tmp/zap/zap_report.html
+
+  scan-full:
+    name: Full Security Scan (ZAP Daemon Mode)
+    runs-on: ubuntu-latest
+    needs: deploy-and-scan
+
+    steps:
+      - name: Start ZAP in daemon mode
+        run: |
+          docker run -d --name zap-daemon \
+            -p 8080:8080 \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -daemon \
+              -port 8080 \
+              -host 0.0.0.0 \
+              -config api.disablekey=true \
+              -config api.addrs.addr.name=.* \
+              -config api.addrs.addr.regex=true
+
+      - name: Wait for ZAP to start
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/JSON/core/view/version/ > /dev/null; then
+              echo "ZAP is ready"
+              break
+            fi
+            echo "Waiting for ZAP..."
+            sleep 5
+          done
+
+      - name: Spider the target
+        run: |
+          curl "http://localhost:8080/JSON/spider/action/scan/?url=https://soundstorm.pp.ua"
+          sleep 10
+
+      - name: Wait for spider to finish
+        run: |
+          while [ "$(curl -s http://localhost:8080/JSON/spider/view/status/ | jq -r '.status')" != "100" ]; do
+            echo "Spider running..."
+            sleep 5
+          done
+
+      - name: Active scan
+        run: |
+          curl "http://localhost:8080/JSON/ascan/action/scan/?url=https://soundstorm.pp.ua"
+          sleep 10
+
+      - name: Wait for active scan to finish
+        run: |
+          while [ "$(curl -s http://localhost:8080/JSON/ascan/view/status/ | jq -r '.status')" != "100" ]; do
+            echo "Active scan running..."
+            sleep 5
+          done
+
+      - name: Generate HTML report
+        run: |
+          curl "http://localhost:8080/OTHER/core/other/htmlreport/" -o zap-full-report.html
+
+      - name: Upload Full Scan Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-full-report
+          path: zap-full-report.html
+
+  monitor:
+    name: Monitoring Check
+    runs-on: ubuntu-latest
+    needs: scan-full
+
+    steps:
+      - name: Check site uptime
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://soundstorm.pp.ua)
+          echo "HTTP Status: $STATUS" > monitor-report.txt
+          if [ "$STATUS" != "200" ]; then
+            echo "Site is DOWN or unhealthy" >> monitor-report.txt
+            exit 1
+          fi
+
+      - name: Check SSL certificate expiration
+        run: |
+          EXPIRY=$(echo | openssl s_client -connect soundstorm.pp.ua:443 -servername soundstorm.pp.ua 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+          EXPIRY_TS=$(date -d "$EXPIRY" +%s)
+          NOW_TS=$(date +%s)
+          DAYS_LEFT=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
+          echo "SSL expires in $DAYS_LEFT days" >> monitor-report.txt
+          if [ "$DAYS_LEFT" -lt 15 ]; then
+            echo "SSL certificate is expiring soon!" >> monitor-report.txt
+            exit 1
+          fi
+
+      - name: Check container health
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            if docker ps --filter "name=test-soundstorm" --filter "status=running" --format "{{.Names}}" | grep -q test-soundstorm; then
+              echo "Container is running" >> monitor-report.txt
+            else
+              echo "Container is NOT running!" >> monitor-report.txt
+              exit 1
+            fi
+
+      - name: Upload Monitoring Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-report
+          path: monitor-report.txt
