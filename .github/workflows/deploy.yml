@@ -1,4 +1,4 @@
-name: Deploy to AWS
+name: CI/CD Deploy
 
 on:
   push:
@@ -7,16 +7,13 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Read VERSION file
-        run: |
-          TAG=$(tr -d '\n\r ' < VERSION)
-          echo "TAG=$TAG" >> $GITHUB_ENV
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -24,49 +21,61 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build image
-        run: docker build -t ${{ secrets.DOCKERHUB_REPO }}:${{ env.TAG }} .
+      - name: Extract version
+        run: echo "VERSION=$(date +'%Y.%m.%d')-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
 
-      - name: Push image
-        run: docker push ${{ secrets.DOCKERHUB_REPO }}:${{ env.TAG }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            witcherua/test-soundstorm:latest
+            witcherua/test-soundstorm:${{ env.VERSION }}
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-and-push
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Read VERSION file
-        run: |
-          TAG=$(tr -d '\n\r ' < VERSION)
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-      - name: Install SSH key
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: Deploy to VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          ssh-private-key: ${{ secrets.VM_SSH_KEY }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            docker pull witcherua/test-soundstorm:latest
 
-      - name: Deploy to AWS VM
-        run: |
-          IMAGE="${{ secrets.DOCKERHUB_REPO }}:${{ env.TAG }}"
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} "
-            set -e
             docker stop test-soundstorm || true
             docker rm test-soundstorm || true
 
-            docker pull $IMAGE
-
             docker run -d \
               --name test-soundstorm \
-              --restart always \
               -p 80:80 \
               -p 443:443 \
-              -v /etc/letsencrypt/live/test.soundstorm.pp.ua/fullchain.pem:/certs/fullchain.pem:ro \
-              -v /etc/letsencrypt/live/test.soundstorm.pp.ua/privkey.pem:/certs/privkey.pem:ro \
-              $IMAGE
-          "
+              -v /etc/letsencrypt:/etc/letsencrypt:ro \
+              --restart always \
+              witcherua/test-soundstorm:latest
+
+            mkdir -p /tmp/zap
+            chown 1000:1000 /tmp/zap
+
+            until curl -sk https://test.soundstorm.pp.ua >/dev/null; do
+              echo "waiting for service..."
+              sleep 5
+            done
+
+            docker run --rm \
+              -v /tmp/zap:/zap/wrk \
+              ghcr.io/zaproxy/zaproxy:latest \
+              zap-baseline.py -t https://test.soundstorm.pp.ua -r /zap/wrk/zap_report.html -I
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: /tmp/zap/zap_report.html
 
   scan-full:
     name: Full Security Scan (ZAP Daemon Mode)
@@ -161,9 +170,9 @@ jobs:
       - name: Check container health
         uses: appleboy/ssh-action@v0.1.10
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USERNAME }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             if docker ps --filter "name=test-soundstorm" --filter "status=running" --format "{{.Names}}" | grep -q test-soundstorm; then
               echo "Container is running" >> monitor-report.txt
@@ -173,7 +182,4 @@ jobs:
             fi
 
       - name: Upload Monitoring Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: monitor-report
-          path: monitor-report.txt
+        uses: actions/upload
