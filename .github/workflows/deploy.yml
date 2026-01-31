@@ -64,7 +64,7 @@ jobs:
               --network host \
               -v /tmp/zap:/zap/wrk \
               ghcr.io/zaproxy/zaproxy:latest \
-              zap-baseline.py -t http://localhost:443 -r zap_report.html
+              zap-baseline.py -t https://localhost:443 -r zap_report.html
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
