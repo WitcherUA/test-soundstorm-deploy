@@ -116,7 +116,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            REPORT_PATH="/home/${USER}/monitor-report.html"
+            REPORT_PATH="/home/maxnrg09/monitor-report.html"
             echo "<html><head><title>Netdata Report</title></head><body><h2>System Metrics</h2><pre>" > $REPORT_PATH
             curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.' >> $REPORT_PATH || echo "CPU metrics unavailable" >> $REPORT_PATH
             echo "</pre><h2>RAM</h2><pre>" >> $REPORT_PATH
