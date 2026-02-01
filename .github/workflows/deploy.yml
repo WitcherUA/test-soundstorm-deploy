@@ -130,13 +130,14 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            echo "=== Netdata Metrics ===" >> ~/monitor-report.txt
+            echo "=== Netdata Metrics ===" > ~/monitor-report.txt
             echo "CPU:" >> ~/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.data' >> ~/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.data' >> ~/monitor-report.txt || echo "CPU metrics unavailable" >> ~/monitor-report.txt
             echo "RAM:" >> ~/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=system.ram | jq '.data' >> ~/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=system.ram | jq '.data' >> ~/monitor-report.txt || echo "RAM metrics unavailable" >> ~/monitor-report.txt
             echo "Disk:" >> ~/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=disk_space._ | jq '.data' >> ~/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=disk_space._ | jq '.data' >> ~/monitor-report.txt || echo "Disk metrics unavailable" >> ~/monitor-report.txt
+
 
       - name: Download report from VM
         uses: appleboy/scp-action@master
