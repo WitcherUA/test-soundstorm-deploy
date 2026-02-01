@@ -126,19 +126,16 @@ jobs:
             echo "</pre></body></html>" >> $REPORT_PATH
 
       - name: Download Netdata HTML report from server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "/home/${{ secrets.SERVER_USER }}/monitor-report.html"
-          target: "./"
+        run: |
+          mkdir -p reports
+          scp -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/monitor-report.html \
+            reports/monitor-report.html
 
       - name: Upload Netdata HTML report
         uses: actions/upload-artifact@v4
         with:
           name: netdata-monitoring-report
-          path: ./monitor-report.html
-          if-no-files-found: error
-          compression-level: 6
-          overwrite: true
+          path: reports/monitor-report.html
+
+      
