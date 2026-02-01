@@ -117,9 +117,9 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             if docker ps --filter "name=test-soundstorm" --filter "status=running" --format "{{.Names}}" | grep -q test-soundstorm; then
-              echo "Container is running" >> ~/monitor-report.txt
+              echo "Container is running" >> /home/${USER}/monitor-report.txt
             else
-              echo "Container is NOT running!" >> ~/monitor-report.txt
+              echo "Container is NOT running!" >> /home/${USER}/monitor-report.txt
               exit 1
             fi
 
@@ -130,14 +130,13 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            echo "=== Netdata Metrics ===" > ~/monitor-report.txt
-            echo "CPU:" >> ~/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.data' >> ~/monitor-report.txt || echo "CPU metrics unavailable" >> ~/monitor-report.txt
-            echo "RAM:" >> ~/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=system.ram | jq '.data' >> ~/monitor-report.txt || echo "RAM metrics unavailable" >> ~/monitor-report.txt
-            echo "Disk:" >> ~/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=disk_space._ | jq '.data' >> ~/monitor-report.txt || echo "Disk metrics unavailable" >> ~/monitor-report.txt
-
+            echo "=== Netdata Metrics ===" > /home/${USER}/monitor-report.txt
+            echo "CPU:" >> /home/${USER}/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.data' >> /home/${USER}/monitor-report.txt || echo "CPU metrics unavailable" >> /home/${USER}/monitor-report.txt
+            echo "RAM:" >> /home/${USER}/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=system.ram | jq '.data' >> /home/${USER}/monitor-report.txt || echo "RAM metrics unavailable" >> /home/${USER}/monitor-report.txt
+            echo "Disk:" >> /home/${USER}/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=disk_space._ | jq '.data' >> /home/${USER}/monitor-report.txt || echo "Disk metrics unavailable" >> /home/${USER}/monitor-report.txt
 
       - name: Download report from VM
         uses: appleboy/scp-action@master
@@ -145,7 +144,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "~/monitor-report.txt"
+          source: "/home/${USER}/monitor-report.txt"   # заміна ~ на абсолютний шлях
           target: "./"
 
       - name: Convert report to HTML
