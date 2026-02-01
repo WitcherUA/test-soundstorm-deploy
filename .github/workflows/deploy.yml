@@ -109,56 +109,36 @@ jobs:
             exit 1
           fi
 
-      - name: Check container health
+      - name: Generate Netdata HTML report on server
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            if docker ps --filter "name=test-soundstorm" --filter "status=running" --format "{{.Names}}" | grep -q test-soundstorm; then
-              echo "Container is running" >> /home/${USER}/monitor-report.txt
-            else
-              echo "Container is NOT running!" >> /home/${USER}/monitor-report.txt
-              exit 1
-            fi
+            REPORT_PATH="/home/${USER}/monitor-report.html"
+            echo "<html><head><title>Netdata Report</title></head><body><h2>System Metrics</h2><pre>" > $REPORT_PATH
+            curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.' >> $REPORT_PATH || echo "CPU metrics unavailable" >> $REPORT_PATH
+            echo "</pre><h2>RAM</h2><pre>" >> $REPORT_PATH
+            curl -s http://localhost:19999/api/v1/data?chart=system.ram | jq '.' >> $REPORT_PATH || echo "RAM metrics unavailable" >> $REPORT_PATH
+            echo "</pre><h2>Disk</h2><pre>" >> $REPORT_PATH
+            curl -s http://localhost:19999/api/v1/data?chart=disk_space._ | jq '.' >> $REPORT_PATH || echo "Disk metrics unavailable" >> $REPORT_PATH
+            echo "</pre></body></html>" >> $REPORT_PATH
 
-      - name: Fetch Netdata metrics via SSH
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            echo "=== Netdata Metrics ===" > /home/${USER}/monitor-report.txt
-            echo "CPU:" >> /home/${USER}/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.data' >> /home/${USER}/monitor-report.txt || echo "CPU metrics unavailable" >> /home/${USER}/monitor-report.txt
-            echo "RAM:" >> /home/${USER}/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=system.ram | jq '.data' >> /home/${USER}/monitor-report.txt || echo "RAM metrics unavailable" >> /home/${USER}/monitor-report.txt
-            echo "Disk:" >> /home/${USER}/monitor-report.txt
-            curl -s http://localhost:19999/api/v1/data?chart=disk_space._ | jq '.data' >> /home/${USER}/monitor-report.txt || echo "Disk metrics unavailable" >> /home/${USER}/monitor-report.txt
-
-      - name: Download report from VM
+      - name: Download Netdata HTML report from server
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "/home/${USER}/monitor-report.txt"   # заміна ~ на абсолютний шлях
+          source: "/home/${{ secrets.SERVER_USER }}/monitor-report.html"
           target: "./"
 
-      - name: Convert report to HTML
-        run: |
-          echo "<html><head><title>Monitoring Report</title></head><body><h2>Monitoring Results</h2><pre>" > monitor-report.html
-          cat monitor-report.txt >> monitor-report.html
-          echo "</pre></body></html>" >> monitor-report.html
-
-      - name: Upload monitoring report
+      - name: Upload Netdata HTML report
         uses: actions/upload-artifact@v4
         with:
-          name: monitor-report
+          name: netdata-monitoring-report
           path: ./monitor-report.html
-          if-no-files-found: warn
+          if-no-files-found: error
           compression-level: 6
-          overwrite: false
-          include-hidden-files: false
+          overwrite: true
