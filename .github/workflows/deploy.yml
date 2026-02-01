@@ -128,7 +128,7 @@ jobs:
       - name: Download Netdata HTML report from server
         run: |
           mkdir -p reports
-          scp -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/test-soundstorm-key -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/monitor-report.html \
             reports/monitor-report.html
 
