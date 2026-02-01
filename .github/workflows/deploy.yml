@@ -84,68 +84,81 @@ jobs:
           path: zap-reports/zap_report.html
 
   monitor:
-     name: Monitoring Check
-     runs-on: ubuntu-latest
-     needs: zap-scan
-     steps:
-       - name: Check site uptime
-         run: |
-           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://test.soundstorm.pp.ua)
-           echo "HTTP Status: $STATUS" > monitor-report.txt
-           if [ "$STATUS" != "200" ]; then
-             echo "Site is DOWN or unhealthy" >> monitor-report.txt
-             exit 1
-           fi
+    name: Monitoring Check
+    runs-on: ubuntu-latest
+    needs: zap-scan
+    steps:
+      - name: Check site uptime
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://test.soundstorm.pp.ua)
+          echo "HTTP Status: $STATUS" > monitor-report.txt
+          if [ "$STATUS" != "200" ]; then
+            echo "Site is DOWN or unhealthy" >> monitor-report.txt
+            exit 1
+          fi
 
-       - name: Check SSL certificate expiration
-         run: |
-           EXPIRY=$(echo | openssl s_client -connect test.soundstorm.pp.ua:443 -servername test.soundstorm.pp.ua 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
-           EXPIRY_TS=$(date -d "$EXPIRY" +%s)
-           NOW_TS=$(date +%s)
-           DAYS_LEFT=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
-           echo "SSL expires in $DAYS_LEFT days" >> monitor-report.txt
-           if [ "$DAYS_LEFT" -lt 15 ]; then
-             echo "SSL certificate is expiring soon!" >> monitor-report.txt
-             exit 1
-           fi
+      - name: Check SSL certificate expiration
+        run: |
+          EXPIRY=$(echo | openssl s_client -connect test.soundstorm.pp.ua:443 -servername test.soundstorm.pp.ua 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+          EXPIRY_TS=$(date -d "$EXPIRY" +%s)
+          NOW_TS=$(date +%s)
+          DAYS_LEFT=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
+          echo "SSL expires in $DAYS_LEFT days" >> monitor-report.txt
+          if [ "$DAYS_LEFT" -lt 15 ]; then
+            echo "SSL certificate is expiring soon!" >> monitor-report.txt
+            exit 1
+          fi
 
-       - name: Check container health
-         uses: appleboy/ssh-action@v0.1.10
-         with:
-           host: ${{ secrets.SERVER_HOST }}
-           username: ${{ secrets.SERVER_USER }}
-           key: ${{ secrets.SERVER_SSH_KEY }}
-           script: |
-             if docker ps --filter "name=test-soundstorm" --filter "status=running" --format "{{.Names}}" | grep -q test-soundstorm; then
-               echo "Container is running" >> monitor-report.txt
-             else
-               echo "Container is NOT running!" >> monitor-report.txt
-               exit 1
-             fi
+      - name: Check container health
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            if docker ps --filter "name=test-soundstorm" --filter "status=running" --format "{{.Names}}" | grep -q test-soundstorm; then
+              echo "Container is running" >> ~/monitor-report.txt
+            else
+              echo "Container is NOT running!" >> ~/monitor-report.txt
+              exit 1
+            fi
 
-       - name: Fetch Netdata metrics
-         run: |
-           echo "=== Netdata Metrics ===" >> monitor-report.txt
-           echo "CPU:" >> monitor-report.txt
-           curl -s http://34.118.88.29:19999/api/v1/data?chart=system.cpu | jq '.data' >> monitor-report.txt
-           echo "RAM:" >> monitor-report.txt
-           curl -s http://34.118.88.29:19999/api/v1/data?chart=system.ram | jq '.data' >> monitor-report.txt
-           echo "Disk:" >> monitor-report.txt
-           curl -s http://34.118.88.29:19999/api/v1/data?chart=disk_space._ | jq '.data' >> monitor-report.txt
+      - name: Fetch Netdata metrics via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            echo "=== Netdata Metrics ===" >> ~/monitor-report.txt
+            echo "CPU:" >> ~/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=system.cpu | jq '.data' >> ~/monitor-report.txt
+            echo "RAM:" >> ~/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=system.ram | jq '.data' >> ~/monitor-report.txt
+            echo "Disk:" >> ~/monitor-report.txt
+            curl -s http://localhost:19999/api/v1/data?chart=disk_space._ | jq '.data' >> ~/monitor-report.txt
 
-       - name: Convert report to HTML
-         run: |
-           echo "<html><head><title>Monitoring Report</title></head><body><h2>Monitoring Results</h2><pre>" > monitor-report.html
-           cat monitor-report.txt >> monitor-report.html
-           echo "</pre></body></html>" >> monitor-report.html
+      - name: Download report from VM
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "~/monitor-report.txt"
+          target: "./"
 
-       - name: Upload monitoring report
-         uses: actions/upload-artifact@v4
-         with:
-           name: monitor-report
-           path: ./monitor-report.html
-           if-no-files-found: warn
-           compression-level: 6
-           overwrite: false
-           include-hidden-files: false
+      - name: Convert report to HTML
+        run: |
+          echo "<html><head><title>Monitoring Report</title></head><body><h2>Monitoring Results</h2><pre>" > monitor-report.html
+          cat monitor-report.txt >> monitor-report.html
+          echo "</pre></body></html>" >> monitor-report.html
 
+      - name: Upload monitoring report
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-report
+          path: ./monitor-report.html
+          if-no-files-found: warn
+          compression-level: 6
+          overwrite: false
+          include-hidden-files: false
