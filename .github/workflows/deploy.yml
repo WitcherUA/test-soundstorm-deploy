@@ -46,10 +46,10 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           script: |
             docker pull witcherua/test-soundstorm:latest
-            docker stop test-soundstorm || true
-            docker rm test-soundstorm || true
+            docker stop test-soundstorm-new || true
+            docker rm test-soundstorm-new || true
             docker run -d \
-              --name test-soundstorm \
+              --name test-soundstorm-new \
               -p 80:80 \
               -p 443:443 \
               -v /etc/letsencrypt:/etc/letsencrypt:ro \
