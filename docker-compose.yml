@@ -1,18 +1,12 @@
 version: '3.8'
 
 services:
-  web:
-    build: ./site
-    ports:
-      - "80:80"
-    restart: always
-
   zap:
     image: ghcr.io/zaproxy/zaproxy:latest
-    container_name: zap-scanner
     volumes:
       - ./zap-reports:/zap/wrk
-    command: zap.sh -daemon -host 0.0.0.0 -port 8080
-    ports:
-      - "8080:8080"
-    restart: always
+    command: >
+      zap-baseline.py
+      -t https://test.soundstorm.pp.ua
+      -r /zap/wrk/zap_report.html
+      -I
