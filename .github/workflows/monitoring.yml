@@ -1,0 +1,38 @@
+name: Monitoring CI/CD
+
+on:
+  push:
+    branches:
+      - monitoring
+  workflow_dispatch:
+
+jobs:
+  monitoring:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start monitoring stack
+        run: |
+          docker-compose -f docker-compose.monitoring.yml up -d
+          sleep 20
+
+      - name: Check Prometheus
+        run: curl -f http://localhost:9090/-/ready
+
+      - name: Check Grafana
+        run: curl -f http://localhost:3000/api/health
+
+      - name: Collect logs
+        run: docker-compose -f docker-compose.monitoring.yml logs > monitoring_logs.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-logs
+          path: monitoring_logs.txt
