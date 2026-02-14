@@ -3,6 +3,7 @@ version: '3.8'
 services:
   prometheus:
     image: prom/prometheus:latest
+    restart: always
     container_name: prometheus
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
@@ -11,6 +12,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    restart: always
     container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
@@ -22,6 +24,7 @@ services:
 
   node-exporter:
     image: prom/node-exporter:latest
+    restart: always
     container_name: node-exporter
     ports:
       - "9100:9100"
