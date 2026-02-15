@@ -1,0 +1,42 @@
+groups:
+  - name: system-alerts
+    rules:
+      # CPU
+      - alert: HighCPUUsage
+        expr: (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[2m]))) > 0.7
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Високе навантаження CPU"
+          description: "CPU > 70% протягом 2 хвилин (4 vCPU)"
+
+      # RAM
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Високе використання RAM"
+          description: "RAM > 80% (≈12.8 GB із 16 GB) протягом 2 хвилин"
+
+      # Disk
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} - node_filesystem_free_bytes{fstype!~"tmpfs|overlay"}) / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Високе використання диску"
+          description: "Disk > 85% протягом 5 хвилин"
+
+      # Network
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[2m]) + rate(node_network_transmit_bytes_total[2m]) > 50e6
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Високе мережеве навантаження"
+          description: "Network > 50 MB/s протягом 2 хвилин"
