@@ -1,0 +1,15 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'telegram'
+
+receivers:
+  - name: 'telegram'
+    telegram_configs:
+      - bot_token: '8316969958:AAHfQxfLD6afwEHbGUe92umMsFdUARWmK-s'
+        chat_id: 1131892664
+        message: '{{ template "telegram.default.message" . }}'
+
+templates:
+  - '/etc/alertmanager/template.tmpl'
