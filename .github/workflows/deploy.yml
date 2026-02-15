@@ -56,29 +56,50 @@ jobs:
               --restart always \
               witcherua/test-soundstorm:latest
 
-  zap-scan:
-    name: ZAP Baseline Scan via Compose
+  nikto-scan:
+    name: Nikto Scan
     runs-on: ubuntu-latest
     needs: deploy
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Install Docker Compose 
-        run: | 
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose 
-          sudo chmod +x /usr/local/bin/docker-compose 
-          docker-compose version
-
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
-
-      - name: Run ZAP baseline scan
-        run: |
-          docker-compose up zap
-
-      - name: Upload ZAP Report
+      - name: Install Nikto
+        run: sudo apt-get update && sudo apt-get install -y nikto
+      - name: Run Nikto Scan
+        run: nikto -h https://test.soundstrom.pp.ua -output nikto_report.txt
+      - name: Upload Nikto Report
         uses: actions/upload-artifact@v4
         with:
-          name: zap-report
-          path: zap-reports/zap_report.html
+          name: nikto-report
+          path: nikto_report.txt
+
+  wapiti-scan:
+    name: Wapiti Scan
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Install Wapiti
+        run: pip install wapiti3
+      - name: Run Wapiti Scan
+        run: wapiti -u https://test.soundstrom.pp.ua -o wapiti_report
+      - name: Upload Wapiti Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: wapiti-report
+          path: wapiti_report
+
+  arachni-scan:
+    name: Arachni Scan
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y ruby ruby-dev build-essential git
+      - name: Install Arachni
+        run: |
+          git clone https://github.com/Arachni/arachni.git
+          cd arachni
+          ./bin/arachni https://test.soundstrom.pp.ua --report-save-path=arachni_report.afr
+      - name: Upload Arachni Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: arachni-report
+          path: arachni/arachni_report.afr
